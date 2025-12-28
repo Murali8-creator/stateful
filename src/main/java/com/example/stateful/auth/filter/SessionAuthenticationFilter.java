@@ -4,12 +4,14 @@ import com.example.stateful.auth.context.AuthContext;
 import com.example.stateful.auth.dto.response.UserDTO;
 import com.example.stateful.auth.exception.ForbiddenException;
 import com.example.stateful.auth.exception.UnauthorizedException;
+import com.example.stateful.auth.security.SessionAuthentication;
 import com.example.stateful.auth.service.AuthService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -51,8 +53,11 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
 
             UserDTO user = authService.authenticate(sessionId);
 
-            request.setAttribute(AuthContext.CURRENT_USER, user);
-            request.setAttribute(AuthContext.SESSION_ID, sessionId);
+            SessionAuthentication authentication =
+                    new SessionAuthentication(user);
+
+            SecurityContextHolder.getContext()
+                    .setAuthentication(authentication);
 
             filterChain.doFilter(request, response);
 
@@ -60,7 +65,10 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, ex.getMessage());
         } catch (ForbiddenException ex) {
             sendError(response, HttpServletResponse.SC_FORBIDDEN, ex.getMessage());
+        }finally {
+            SecurityContextHolder.clearContext();
         }
+
     }
 
     private String extractSessionId(HttpServletRequest request) {
