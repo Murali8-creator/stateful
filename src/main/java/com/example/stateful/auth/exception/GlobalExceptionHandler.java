@@ -58,10 +58,5 @@ public class GlobalExceptionHandler {
                 .body("Something went wrong");
     }
 
-    @ExceptionHandler(ForbiddenException.class)
-    public ResponseEntity<String> handleForbidden(ForbiddenException ex) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
-    }
-
 }
 
