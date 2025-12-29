@@ -9,6 +9,7 @@ import com.example.stateful.auth.exception.UnauthorizedException;
 import com.example.stateful.auth.mapper.UserMapper;
 import com.example.stateful.auth.repository.UserRepository;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -22,15 +23,18 @@ public class AuthService {
     private static final String SESSION_PREFIX = "auth:session:";
 
     private final RedisTemplate<String, Object> redisTemplate;
+
+    private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
 
     public AuthService(
             RedisTemplate<String, Object> redisTemplate,
-            UserRepository userRepository,
+            PasswordEncoder passwordEncoder, UserRepository userRepository,
             UserMapper userMapper
     ) {
         this.redisTemplate = redisTemplate;
+        this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.userMapper = userMapper;
     }
@@ -38,7 +42,7 @@ public class AuthService {
     public String login(String email, String password) {
         User user = userRepository.findByEmail(email);
 
-        if (user == null || !password.equals(user.getPassword())) {
+        if (user == null || !passwordEncoder.matches(password, user.getPassword())) {
             throw new UnauthorizedException("Invalid credentials");
         }
 
@@ -54,22 +58,6 @@ public class AuthService {
                 .set(redisKey, session, IDLE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         return sessionId;
-    }
-
-    public UserDTO getProfile(String sessionId) {
-        String redisKey = SESSION_PREFIX + sessionId;
-
-        Session session =(Session) redisTemplate.opsForValue().get(redisKey);
-
-        if (session == null) {
-            throw new ForbiddenException("Session expired or invalid");
-        }
-
-        // sliding expiry refresh
-        redisTemplate.expire(redisKey, IDLE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-        User user = userRepository.findById(session.getUserId()).orElseThrow(() -> new EntityNotFoundException("User not found"));
-        return userMapper.toDTO(user);
     }
 
     public void logout(String sessionId) {

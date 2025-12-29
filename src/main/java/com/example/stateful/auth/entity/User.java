@@ -1,5 +1,6 @@
 package com.example.stateful.auth.entity;
 
+import com.example.stateful.auth.enums.Role;
 import jakarta.persistence.*;
 
 import java.util.UUID;
@@ -15,6 +16,17 @@ public class User {
     private String email;
 
     private String password;
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
 
     public String getEmail() {
         return email;

@@ -9,6 +9,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -44,9 +45,9 @@ public class AuthController {
     }
 
     @GetMapping("/profile")
-    public ResponseEntity<UserDTO> profile(HttpServletRequest request) {
-        UserDTO user =
-                (UserDTO) request.getAttribute(AuthContext.CURRENT_USER);
+    public ResponseEntity<UserDTO> profile(
+            @AuthenticationPrincipal UserDTO user
+    ) {
         return ResponseEntity.ok(user);
     }
 
