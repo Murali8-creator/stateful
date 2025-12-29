@@ -26,7 +26,8 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
             "/auth/login",
-            "/actuator/health"
+            "/actuator/health",
+            "/auth/register"
     );
 
     private final AuthService authService;
@@ -65,7 +66,10 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
             sendError(response, HttpServletResponse.SC_UNAUTHORIZED, ex.getMessage());
         } catch (ForbiddenException ex) {
             sendError(response, HttpServletResponse.SC_FORBIDDEN, ex.getMessage());
-        }finally {
+        } catch (Exception ex) {
+        sendError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ex.getMessage());
+        }
+        finally {
             SecurityContextHolder.clearContext();
         }
 
