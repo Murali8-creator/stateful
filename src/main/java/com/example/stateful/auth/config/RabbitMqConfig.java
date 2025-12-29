@@ -26,6 +26,10 @@ public class RabbitMqConfig {
     public static final String ML_ROUTING_KEY = "ml.process.start";
     public static final String ML_DEAD_LETTER_KEY = "ml.dead";
 
+    // ML Result Queues & Keys
+    public static final String ML_RESULTS_QUEUE = "ml.results.queue";
+    public static final String ML_RESULTS_ROUTING_KEY = "ml.process.finished";
+
     // --- Exchanges ---
 
     @Bean
@@ -68,6 +72,11 @@ public class RabbitMqConfig {
         return QueueBuilder.durable(ML_DLQ).build();
     }
 
+    @Bean
+    public Queue mlResultsQueue() {
+        return QueueBuilder.durable(ML_RESULTS_QUEUE).build();
+    }
+
     // --- Bindings (Explicitly named parameters to avoid ambiguity) ---
 
     @Bean
@@ -96,6 +105,13 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(mlDeadLetterQueue)
                 .to(dlqExchange)
                 .with(ML_DEAD_LETTER_KEY);
+    }
+
+    @Bean
+    public Binding mlResultsBinding(Queue mlResultsQueue, DirectExchange appExchange) {
+        return BindingBuilder.bind(mlResultsQueue)
+                .to(appExchange)
+                .with(ML_RESULTS_ROUTING_KEY);
     }
 
     // --- Converter ---

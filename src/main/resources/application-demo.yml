@@ -4,6 +4,9 @@ server:
 spring:
   application:
     name: stateful
+  mvc:
+    servlet:
+      path: /api
   datasource:
     url:
     username:
