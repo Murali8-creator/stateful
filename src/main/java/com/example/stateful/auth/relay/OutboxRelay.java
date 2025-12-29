@@ -36,10 +36,17 @@ public class OutboxRelay {
 
 
             try {
+
+                String routingKey = switch (msg.getEventType()) {
+                    case "INVITATION_CREATED" -> "invitation.created";
+                    case "ML_PROCESS_START"   -> "ml.process.start";
+                    default -> throw new IllegalArgumentException("Unknown event type: " + msg.getEventType());
+                };
+
                 // 1. Send to RabbitMQ
                 rabbitTemplate.convertAndSend(
                         "app.events.exchange",
-                        "invitation.created",
+                        routingKey,
                         msg.getPayload()
                 );
 
