@@ -5,6 +5,8 @@ import com.example.stateful.auth.entity.OutboxMessage;
 import com.example.stateful.auth.repository.OutboxRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -43,11 +45,18 @@ public class OutboxRelay {
                     default -> throw new IllegalArgumentException("Unknown event type: " + msg.getEventType());
                 };
 
+                // Create a proper AMQP Message with JSON content-type manually
+                Message message = new Message(
+                        msg.getPayload().getBytes(),
+                        new MessageProperties()
+                );
+                message.getMessageProperties().setContentType(MessageProperties.CONTENT_TYPE_JSON);
+
                 // 1. Send to RabbitMQ
                 rabbitTemplate.convertAndSend(
                         "app.events.exchange",
                         routingKey,
-                        msg.getPayload()
+                        message
                 );
 
                 // 2. Mark as processed in the SAME transaction
