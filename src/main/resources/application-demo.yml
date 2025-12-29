@@ -1,0 +1,43 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: stateful
+  datasource:
+    url:
+    username:
+    password:
+    driver-class-name:
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql:
+        dialect:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 500ms
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  rabbitmq:
+    listener:
+      simple:
+        retry:
+          enabled: true
+          initial-interval: 3s      # Wait 3s after 1st failure
+          max-attempts: 3           # Total 3 tries
+          multiplier: 2.0           # 3s, then 6s, then 12s... (Exponential Backoff)
