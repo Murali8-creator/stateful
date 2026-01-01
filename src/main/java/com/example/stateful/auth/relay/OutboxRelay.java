@@ -1,8 +1,10 @@
 package com.example.stateful.auth.relay;
 
 import com.example.stateful.auth.config.RabbitMqConfig;
+import com.example.stateful.auth.dto.event.InvitationEvent;
 import com.example.stateful.auth.entity.OutboxMessage;
 import com.example.stateful.auth.repository.OutboxRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class OutboxRelay {
 
     private final OutboxRepository outboxRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 5000)
     @Transactional // CRITICAL: The lock exists ONLY as long as this transaction is open
@@ -45,18 +49,17 @@ public class OutboxRelay {
                     default -> throw new IllegalArgumentException("Unknown event type: " + msg.getEventType());
                 };
 
-                // Create a proper AMQP Message with JSON content-type manually
-                Message message = new Message(
-                        msg.getPayload().getBytes(),
-                        new MessageProperties()
-                );
-                message.getMessageProperties().setContentType(MessageProperties.CONTENT_TYPE_JSON);
+                Object payloadObj = switch (msg.getEventType()) {
+                    case "INVITATION_CREATED" -> objectMapper.readValue(msg.getPayload(), InvitationEvent.class);
+                    case "ML_PROCESS_START"   -> objectMapper.readValue(msg.getPayload(), Map.class); // Or relevant DTO
+                    default -> msg.getPayload();
+                };
 
                 // 1. Send to RabbitMQ
                 rabbitTemplate.convertAndSend(
                         "app.events.exchange",
                         routingKey,
-                        message
+                        payloadObj
                 );
 
                 // 2. Mark as processed in the SAME transaction
