@@ -25,9 +25,9 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
     private static final String SESSION_COOKIE = "AUTH_SESSION_ID";
 
     private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/auth/login",
-            "/actuator/health",
-            "/auth/register"
+            "/api/auth/login",
+            "/api/actuator/health",
+            "/api/auth/register"
     );
 
     private final AuthService authService;

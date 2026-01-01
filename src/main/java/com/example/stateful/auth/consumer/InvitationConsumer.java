@@ -19,15 +19,16 @@ public class InvitationConsumer {
      private final EmailService emailService;
 
     @RabbitListener(queues = RabbitMqConfig.INVITATION_QUEUE)
-    public void handleInvitation(String messagePayload) throws JsonProcessingException {
-        // Note: No try-catch here!
-        // We WANT the exception to propagate up so Spring knows it failed
-        // and triggers the retry/DLQ logic.
+    public void handleInvitation(InvitationEvent event) {
+        log.info("CONSUMER: Received invitation event for {}", event.email());
 
-        InvitationEvent event = objectMapper.readValue(messagePayload, InvitationEvent.class);
-
-        log.info("CONSUMER: Attempting email to {}", event.email());
-
-        emailService.sendInvitationEmail(event.email(), event.token());
+        try {
+            emailService.sendInvitationEmail(event.email(), event.token());
+            log.info("CONSUMER: Email sent successfully to {}", event.email());
+        } catch (Exception e) {
+            log.error("CONSUMER: Failed to send email to {}: {}", event.email(), e.getMessage());
+            // Rethrowing allows RabbitMQ retry/DLQ logic to take over
+            throw e;
+        }
     }
 }
