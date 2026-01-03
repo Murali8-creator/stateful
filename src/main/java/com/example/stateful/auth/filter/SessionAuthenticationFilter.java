@@ -2,8 +2,6 @@ package com.example.stateful.auth.filter;
 
 import com.example.stateful.auth.context.AuthContext;
 import com.example.stateful.auth.dto.response.UserDTO;
-import com.example.stateful.auth.exception.ForbiddenException;
-import com.example.stateful.auth.exception.UnauthorizedException;
 import com.example.stateful.auth.security.SessionAuthentication;
 import com.example.stateful.auth.service.AuthService;
 import jakarta.servlet.FilterChain;
@@ -11,36 +9,20 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Set;
 
 @Component
+@RequiredArgsConstructor
 public class SessionAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String SESSION_COOKIE = "AUTH_SESSION_ID";
-
-    private static final Set<String> PUBLIC_PATHS = Set.of(
-            "/api/auth/login",
-            "/api/actuator/health",
-            "/api/auth/register"
-    );
-
     private final AuthService authService;
-
-    public SessionAuthenticationFilter(AuthService authService) {
-        this.authService = authService;
-    }
-
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
-    }
 
     @Override
     protected void doFilterInternal(
@@ -50,61 +32,38 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         try {
-            String sessionId = extractSessionId(request);
+            String sessionId = getSessionIdFromRequest(request);
 
-            UserDTO user = authService.authenticate(sessionId);
+            if (sessionId != null) {
+                UserDTO user = authService.authenticate(sessionId);
+                SessionAuthentication authentication = new SessionAuthentication(user);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            SessionAuthentication authentication =
-                    new SessionAuthentication(user);
-
-            SecurityContextHolder.getContext()
-                    .setAuthentication(authentication);
+                // Helpful for the logout controller
+                request.setAttribute(AuthContext.SESSION_ID, sessionId);
+            }
 
             filterChain.doFilter(request, response);
 
-        } catch (UnauthorizedException ex) {
-            sendError(response, HttpServletResponse.SC_UNAUTHORIZED, ex.getMessage());
-        } catch (ForbiddenException ex) {
-            sendError(response, HttpServletResponse.SC_FORBIDDEN, ex.getMessage());
         } catch (Exception ex) {
-        sendError(response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, ex.getMessage());
-        }
-        finally {
+            // If auth logic fails, we clear the context and still let the request
+            // proceed (Soft Filter). SecurityConfig will block if path is private.
+            SecurityContextHolder.clearContext();
+            filterChain.doFilter(request, response);
+        } finally {
+            // BULLETPROOF: Ensure the thread is clean when it returns to the pool
             SecurityContextHolder.clearContext();
         }
-
     }
 
-    private String extractSessionId(HttpServletRequest request) {
+    private String getSessionIdFromRequest(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
-
-        if (cookies == null) {
-            throw new UnauthorizedException("Missing authentication cookie");
-        }
+        if (cookies == null) return null;
 
         return Arrays.stream(cookies)
                 .filter(c -> SESSION_COOKIE.equals(c.getName()))
                 .findFirst()
                 .map(Cookie::getValue)
-                .orElseThrow(() ->
-                        new UnauthorizedException("Missing authentication cookie"));
-    }
-
-    private void sendError(
-            HttpServletResponse response,
-            int status,
-            String message
-    ) throws IOException {
-
-        response.setStatus(status);
-        response.setContentType("application/json");
-
-        response.getWriter().write(
-                """
-                {
-                  "error": "%s"
-                }
-                """.formatted(message)
-        );
+                .orElse(null);
     }
 }
